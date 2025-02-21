@@ -47,3 +47,6 @@ A text-based summary analysis
 📌 Use Case: This tool is useful for researchers, geologists, and anyone interested in monitoring global earthquake activity in a visually informative way.
 
 🚀 Contributions are welcome! Feel free to improve the script or add new functionalities.
+
+![Global Earthquake](https://github.com/user-attachments/assets/a8ed65aa-0835-4c78-8f85-2b2cc37d3cb8)
+
