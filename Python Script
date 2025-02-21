@@ -1,0 +1,147 @@
+import geopandas as gpd
+import pandas as pd
+import matplotlib.pyplot as plt
+import folium
+from folium.plugins import HeatMap
+import requests
+from datetime import datetime, timedelta
+import seaborn as sns
+from shapely.geometry import Point
+import os
+
+# Define the save directory
+SAVE_DIR = r"E:\Mapping_Projects"
+
+def ensure_directory_exists():
+    """
+    Create the save directory if it doesn't exist
+    """
+    if not os.path.exists(SAVE_DIR):
+        os.makedirs(SAVE_DIR)
+        print(f"Created directory: {SAVE_DIR}")
+
+def fetch_earthquake_data():
+    """
+    Fetch last 30 days of earthquake data from USGS
+    """
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=30)
+    
+    url = (
+        f"https://earthquake.usgs.gov/fdsnws/event/1/query?"
+        f"format=geojson&starttime={start_date.strftime('%Y-%m-%d')}"
+        f"&endtime={end_date.strftime('%Y-%m-%d')}&minmagnitude=4.5"
+    )
+    
+    response = requests.get(url)
+    return response.json()
+
+def create_earthquake_map():
+    """
+    Create an interactive map showing earthquake locations and magnitudes
+    """
+    print("Fetching earthquake data...")
+    eq_data = fetch_earthquake_data()
+    
+    # Convert to DataFrame
+    earthquakes = []
+    for feature in eq_data['features']:
+        lon, lat, depth = feature['geometry']['coordinates']
+        mag = feature['properties']['mag']
+        place = feature['properties']['place']
+        time = datetime.fromtimestamp(feature['properties']['time'] / 1000)
+        
+        earthquakes.append({
+            'latitude': lat,
+            'longitude': lon,
+            'magnitude': mag,
+            'depth': depth,
+            'location': place,
+            'time': time,
+            'geometry': Point(lon, lat)
+        })
+    
+    print(f"Processing {len(earthquakes)} earthquake events...")
+    df = pd.DataFrame(earthquakes)
+    gdf = gpd.GeoDataFrame(df, geometry='geometry')
+    
+    # Create base map
+    m = folium.Map(location=[0, 0], zoom_start=2)
+    
+    # Add earthquake points
+    for idx, row in gdf.iterrows():
+        folium.CircleMarker(
+            location=[row['latitude'], row['longitude']],
+            radius=row['magnitude'] * 2,
+            popup=f"Magnitude: {row['magnitude']}<br>Location: {row['location']}<br>Depth: {row['depth']} km",
+            color='red',
+            fill=True,
+            fill_color='red'
+        ).add_to(m)
+    
+    # Add heatmap layer
+    heat_data = [[row['latitude'], row['longitude'], row['magnitude']] for idx, row in gdf.iterrows()]
+    HeatMap(heat_data).add_to(m)
+    
+    # Create static visualization
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6))
+    
+    # Plot magnitude distribution
+    sns.histplot(data=df, x='magnitude', bins=20, ax=ax1)
+    ax1.set_title('Distribution of Earthquake Magnitudes')
+    ax1.set_xlabel('Magnitude')
+    ax1.set_ylabel('Count')
+    
+    # Plot depth vs magnitude
+    sns.scatterplot(data=df, x='depth', y='magnitude', ax=ax2)
+    ax2.set_title('Earthquake Depth vs Magnitude')
+    ax2.set_xlabel('Depth (km)')
+    ax2.set_ylabel('Magnitude')
+    
+    return m, fig, df
+
+def analyze_earthquakes(df):
+    """
+    Perform statistical analysis on earthquake data
+    """
+    analysis = {
+        'total_earthquakes': len(df),
+        'average_magnitude': round(df['magnitude'].mean(), 2),
+        'max_magnitude': df['magnitude'].max(),
+        'average_depth': round(df['depth'].mean(), 2),
+        'most_active_regions': df['location'].value_counts().head()
+    }
+    return analysis
+
+if __name__ == "__main__":
+    try:
+        # Ensure save directory exists
+        ensure_directory_exists()
+        
+        print("Starting earthquake analysis...")
+        earthquake_map, analysis_fig, df = create_earthquake_map()
+        
+        # Save the interactive map
+        map_path = os.path.join(SAVE_DIR, 'earthquake_map.html')
+        earthquake_map.save(map_path)
+        print(f"Saved interactive map to: {map_path}")
+        
+        # Save the analysis figure
+        fig_path = os.path.join(SAVE_DIR, 'earthquake_analysis.png')
+        analysis_fig.savefig(fig_path)
+        print(f"Saved analysis plots to: {fig_path}")
+        
+        # Perform and save analysis
+        analysis = analyze_earthquakes(df)
+        analysis_path = os.path.join(SAVE_DIR, 'earthquake_analysis.txt')
+        with open(analysis_path, 'w') as f:
+            f.write("Earthquake Analysis Results\n")
+            f.write("==========================\n\n")
+            for key, value in analysis.items():
+                f.write(f"{key.replace('_', ' ').title()}: {value}\n")
+        print(f"Saved analysis results to: {analysis_path}")
+        
+        print("\nAnalysis complete! Check the output files in:", SAVE_DIR)
+        
+    except Exception as e:
+        print(f"An error occurred: {str(e)}")
