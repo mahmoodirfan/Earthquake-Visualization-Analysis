@@ -21,23 +21,6 @@ Folium (for interactive mapping)
 Matplotlib & Seaborn (for visualization)
 Requests (for API data fetching)
 Shapely (for geometry processing)
-How to Run
-Clone this repository:
-bash
-Copy
-Edit
-git clone https://github.com/yourusername/Earthquake-Visualization-Analysis.git
-cd Earthquake-Visualization-Analysis
-Install dependencies:
-bash
-Copy
-Edit
-pip install -r requirements.txt
-Run the script:
-bash
-Copy
-Edit
-python earthquake_analysis.py
 
 **Expected Outputs**
 A dynamic earthquake map with magnitude markers
